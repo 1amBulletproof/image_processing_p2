@@ -122,22 +122,23 @@ def main():
         if key == ord(' '):
             mask_inv = cv2.bitwise_not(mask)
             print("Showing Masked Image")
-            cv2.imshow('img_marked', img_clone)
-            cv2.waitKey()
+            key = show_image(img_clone, 'img_marked', -1)
+            handle_keyboard_input(key, img_clone)
             print("Showing Background Image")
             bg_img = cv2.bitwise_and(img_gray, img_gray, mask = mask_inv)
-            cv2.imshow('BG IMG', bg_img)
-            cv2.waitKey()
+            key = show_image(bg_img, 'BG IMG', -1)
+            handle_keyboard_input(key, bg_img)
             print("Showing Foreground Image")
             fg_img = cv2.bitwise_and(img, img, mask = mask)
-            cv2.imshow('FG IMG', fg_img)
-            cv2.waitKey()
+            key = show_image(fg_img, 'FG IMG', -1)
+            handle_keyboard_input(key, fg_img)
             final_img = cv2.add(bg_img, fg_img)
             break
 
     #------------------------------------------------
     #Show Final Image (with changes):
     #------------------------------------------------
+    print("Showing Final Image")
     key = show_image(final_img, 'Showing the Final Image (combination of the bg and fg img)')
     handle_keyboard_input(key, final_img)
 
