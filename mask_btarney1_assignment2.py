@@ -2,6 +2,7 @@
 
 # @Author: Brandon Tarney
 # @Date: 10/2017
+# @see: https://github.com/opencv/opencv/blob/master/samples/python/inpaint.py
 
 # Program Summary: 
 ## Allow user to mask an image and then convert all unmasked img-area to black & white
@@ -19,44 +20,51 @@
 ## 6. Change size of "marker" by pressing "+" and "-"
 ## 7. Submit zip file w/ images & src code:w
 
+
 import sys
 import cv2
+import numpy as np
+from masker import Masker
+
 
 def usage():
-        print("USAGE: python2 %s <image_path>" % (sys.argv[0]))
-        print(" User presses 'r' to show an img after they have created a mask")
+        print("\nUSAGE: python2 %s <image_path>" % (sys.argv[0]))
+        print(" User presses ' ' (space) to display an img after they have created a mask")
+        print(" User presses 'r' to reset an img while editing its mask")
         print(" User presses 's' when img is showing to save img as 'output_file.jpg'")
-        print(" User presses '<esc>' to stop showing an image")
+        print(" User presses 'q' at any time to quit\n")
+
+
+def color_function():
+    white_mark = (255,255,255)
+    white_mask_value = 255
+    return white_mark, white_mask_value
+
+
+def show_image(img, description, duration_ms=-1):
+    cv2.imshow(description, img)
+    if(duration_ms == -1):
+        key = cv2.waitKey()
+    else:
+        key = cv2.waitKey(duration_ms)
+    return key
+
 
 def handle_keyboard_input(key, img):
-    # wait for '<esc>' key to exit
-    if key == 27:    
-        cv2.destroyAllWindows()
-
     # wait for 's' key to save and exit
-    elif key == ord('s'):
+    if key == ord('s'):
+        print("Saving file to output_file.jpg")
         cv2.imwrite('output_file.jpg', img)
         cv2.destroyAllWindows()
-
-    #key is 'r', time to present a black & white img
-    elif key == ord('r'):
-        #Change image color
-        grayImg = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
         cv2.destroyAllWindows()
-        key2 = show_image(grayImg, 'Black & White Img')
-        handle_keyboard_input(key2, grayImg)
-
-
-def show_image(img, description):
-    cv2.imshow(description, img)
-    key = cv2.waitKey(7000)
-    return key
 
 
 def main():
     #------------------------------------------------
     #Check and Read arguments
     #------------------------------------------------
+    usage()
     if len(sys.argv) != 2:
         print "ERROR: Missing Arguments"
         usage()
@@ -70,27 +78,69 @@ def main():
     #------------------------------------------------
     #Read/load image:
     #------------------------------------------------
-    #(grayscale img load)
-    #img = cv2.imread(sys.argv[1],0)
-    #(color img load)
     img = cv2.imread(sys.argv[1],1)
-    
+
+    if img is None:
+        print("Could not load image, quitting...")
+        usage()
+        sys.exit(1)
+
     #------------------------------------------------
-    #Show OG image (sanity check):
+    #Setup Image Processing (showing after each processing)
     #------------------------------------------------
-    key = show_image(img, 'Input Image')
-    handle_keyboard_input(key, img)
+    img_clone = img.copy()
+    final_img = img.copy()
+
+    #Setup the mask
+    mask = np.zeros(img.shape[:2], np.uint8)
+
+    #The eventual background image
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img_gray = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2BGR)
+
+    images = [img_clone, mask]
+
+    #Allow user to markup img (creating the mask)
+    masker = Masker("Create Mask", images, color_function)
 
     #------------------------------------------------
     #Process Image (showing after each processing)
     #------------------------------------------------
+    while True:
+        key = cv2.waitKey()
+        if key == ord('+'):
+            masker.increase_thickness(10)
+        elif key == ord('-'):
+            masker.decrease_thickness(10)
+        if key == ord('q'):
+            print("User pressed 'q' to quit")
+            sys.exit(1)
+        if key == ord('r'):
+            img_clone[:] = img
+            mask[:] = 0
+            masker.show()
+        if key == ord(' '):
+            mask_inv = cv2.bitwise_not(mask)
+            print("Showing Masked Image")
+            cv2.imshow('img_marked', img_clone)
+            cv2.waitKey()
+            print("Showing Background Image")
+            bg_img = cv2.bitwise_and(img_gray, img_gray, mask = mask_inv)
+            cv2.imshow('BG IMG', bg_img)
+            cv2.waitKey()
+            print("Showing Foreground Image")
+            fg_img = cv2.bitwise_and(img, img, mask = mask)
+            cv2.imshow('FG IMG', fg_img)
+            cv2.waitKey()
+            final_img = cv2.add(bg_img, fg_img)
+            break
 
     #------------------------------------------------
     #Show Final Image (with changes):
     #------------------------------------------------
-    #Show image and wait: '<esc>' to quit or 's' to save
-    #key = show_image(img, 'Final Img')
-    #handle_keyboard_input(key, img)
+    key = show_image(final_img, 'Showing the Final Image (combination of the bg and fg img)')
+    handle_keyboard_input(key, final_img)
+
 
 
 if __name__ == "__main__":
